@@ -1,0 +1,50 @@
+<html>
+    <head>
+        <title> Chord visualization </title>
+        <style>
+        body {
+            color: #d3d3d3;
+            font: 12pt arial;
+            background-color: #222222;
+        }
+
+        #mynetwork {
+            width: 800px;
+            height: 800px;i
+            position: relative;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 100px;
+            border: 1px solid #444444;
+            background-color: #222222;
+        }
+        </style>
+
+        <link src="www.visjs.org/dist/vis.css" rel="stylesheet" type="text/css"/>
+
+    </head>
+    <body>
+    <input type="button" onclick="stabilize()" value="Stabilize">
+    <input type="button" onclick="disble_physics()" value="Physics OFF">
+    <input type="button"  value="Add Segment" id="addSegmentfoo">
+    <ul id="nodes"></ul>
+        <ul id="logger"></ul>
+
+    <div id="mynetwork">
+        <div class="vis-network" tabindex="900" style="position: relative; overflow: hidden; touch-action: pan-y; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;"><canvas width="800" height="800" style="position: relative; touch-action: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;"></canvas></div>
+    </div>
+    </body>
+        <script type="text/javascript" src="assets/google-protobuf.js"> </script>
+        <script type="application/javascript" src="//cdn.rawgit.com/Alorel/console-log-html/master/console-log-html.min.js"></script>
+
+        <script type="text/javascript" src="assets/myproto_libs.js"> </script>
+        <script type="text/javascript"  src="assets/app.js"> </script>
+        <script type="text/javascript"  src="http://visjs.org/dist/vis.js"> </script>
+    <script>
+
+        console.log("lol")
+        var grapher = new Grapher();
+        grapher.connectWebsocket("localhost", "8001");
+    </script>
+
+</html>

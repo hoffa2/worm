@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+message addnode {
+    string node_id = 1;
+}
+message target {
+    int32 target = 1;
+}
+
+//
+message FromClient {
+    oneof msg{
+        int32 changeTarget = 1;
+        bool shutdownTarget = 2;
+        bool getTarget = 3;
+    }
+ }
+
+message ToClient {
+    oneof msg {
+        addnode addnode = 1;
+        target target = 2;
+    }
+}
