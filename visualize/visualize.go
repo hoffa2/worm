@@ -186,7 +186,6 @@ func changeSegmentTarget(oldTarget, newTarget int32) {
 func inputHandler(msg message.FromClient, send func(message.ToClient) error) error {
 	switch msg.Msg.(type) {
 	case *message.FromClient_ChangeTarget:
-		fmt.Println("Heiaaa")
 		newTs := msg.GetChangeTarget()
 		ts := atomic.LoadInt32(&targetSegments)
 		changeSegmentTarget(ts, newTs)
