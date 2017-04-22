@@ -22,3 +22,14 @@ message ToClient {
         target target = 2;
     }
 }
+
+message election {
+    int32 state = 1;
+    target newtarget = 2;
+}
+
+message Gossip {
+    oneof msg {
+        election election = 1;
+    }
+}
