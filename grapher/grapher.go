@@ -20,13 +20,15 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+// Grapher lol
 type Grapher struct {
 	conn          *websocket.Conn
 	onMessageFunc func(message.FromClient, func(message.ToClient) error) error
 }
 
-func (g Grapher) Addnode(nodeID int) error {
-	msg := &message.Addnode{NodeId: int32(nodeID)}
+// Addnode add a node to the visualizer
+func (g Grapher) Addnode(nodeID string) error {
+	msg := &message.Addnode{NodeId: nodeID}
 
 	payload, err := proto.Marshal(msg)
 	if err != nil {
@@ -41,6 +43,7 @@ func (g Grapher) Addnode(nodeID int) error {
 	return nil
 }
 
+// Init lol
 func Init(onMessageFunc func(message.FromClient, func(message.ToClient) error) error, port string) *Grapher {
 	grapher := &Grapher{
 		onMessageFunc: onMessageFunc,

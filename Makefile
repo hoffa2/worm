@@ -4,7 +4,7 @@ GRPC_MESSAGES=rpc.proto
 all: grpc proto proto_js
 
 grpc:
-	protoc --go_out=plugins=grpc:. protobuf/${GRPC_MESSAGES}
+	protoc --go_out=plugins=grpc:. protobuf/grpc/*.proto
 
 proto:
 	protoc --go_out=. protobuf/message.proto

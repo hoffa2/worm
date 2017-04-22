@@ -3,6 +3,8 @@ package segment
 import (
 	"errors"
 	"net"
+
+	"google.golang.org/grpc"
 )
 
 var (
@@ -17,11 +19,13 @@ type Gossip struct {
 
 // SetupGossip start listening for aliens
 // param port port on which to accept connections
-func SetupGossip(port string) (*Gossip, error) {
+func SetupRPCServer(port string) (*Gossip, error) {
 	conn, err := net.Listen("udp", "0.0.0.0:"+port)
 	if err != nil {
 		return nil, err
 	}
+
+	grpc.NewServer()
 
 	goss := &Gossip{
 		Listener:    conn,
