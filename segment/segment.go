@@ -1,7 +1,6 @@
-package main
+package segment
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"syscall"
+
+	"github.com/urfave/cli"
 )
 
 var wormgatePort string
@@ -27,43 +28,12 @@ type segment struct {
 	net.Listener
 }
 
-func main() {
+func SendSegment(c *cli.Context) {
+	host := c.String("host")
+	segmentPort := c.String("segmentport")
+	wormgatePort := c.String("wormgateport")
 
-	hostname, _ = os.Hostname()
-	log.SetPrefix(hostname + " segment: ")
-
-	var spreadMode = flag.NewFlagSet("spread", flag.ExitOnError)
-	addCommonFlags(spreadMode)
-	var spreadHost = spreadMode.String("host", "localhost", "host to spread to")
-
-	var runMode = flag.NewFlagSet("run", flag.ExitOnError)
-	addCommonFlags(runMode)
-
-	if len(os.Args) == 1 {
-		log.Fatalf("No mode specified\n")
-	}
-
-	switch os.Args[1] {
-	case "spread":
-		spreadMode.Parse(os.Args[2:])
-		sendSegment(*spreadHost)
-	case "run":
-		runMode.Parse(os.Args[2:])
-		startSegmentServer()
-
-	default:
-		log.Fatalf("Unknown mode %q\n", os.Args[1])
-	}
-}
-
-func addCommonFlags(flagset *flag.FlagSet) {
-	flagset.StringVar(&wormgatePort, "wp", ":8181", "wormgate port (prefix with colon)")
-	flagset.StringVar(&segmentPort, "sp", ":8182", "segment port (prefix with colon)")
-}
-
-func sendSegment(address string) {
-
-	url := fmt.Sprintf("http://%s%s/wormgate?sp=%s", address, wormgatePort, segmentPort)
+	url := fmt.Sprintf("http://%s%s/wormgate?sp=%s", host, wormgatePort, segmentPort)
 	filename := "tmp.tar.gz"
 
 	log.Printf("Spreading to %s", url)
@@ -93,7 +63,9 @@ func sendSegment(address string) {
 	}
 }
 
-func startSegmentServer() {
+func StartSegmentServer(c *cli.Context) {
+	segmentPort := c.String("segmentport")
+
 	srv := http.Server{}
 
 	l, err := net.Listen("tcp", ":"+segmentPort)
@@ -126,6 +98,8 @@ func startSegmentServer() {
 
 	log.Printf("Starting segment server on %s%s\n", hostname, segmentPort)
 	log.Printf("Reachable hosts: %s", strings.Join(fetchReachableHosts(), " "))
+
+	go runSegmentUntilShutdown()
 
 	err = srv.Serve(segment.Listener)
 	if err != nil {
@@ -194,4 +168,8 @@ func fetchReachableHosts() []string {
 	trimmed := strings.TrimSpace(body)
 	nodes := strings.Split(trimmed, "\n")
 	return nodes
+}
+
+func runSegmentUntilShutdown() {
+
 }

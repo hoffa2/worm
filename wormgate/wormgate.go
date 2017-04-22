@@ -1,4 +1,4 @@
-package main
+package wormgate
 
 import (
 	"flag"
@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/hoffa2/worm/rocks"
+	"github.com/urfave/cli"
 )
 
 var wormgatePort string
@@ -32,11 +33,8 @@ var runningSegment struct {
 	p *os.Process
 }
 
-func main() {
-
-	flag.StringVar(&wormgatePort, "wp", ":8181", "wormgate port (prefix with colon)")
-	flag.Parse()
-
+func Run(c *cli.Context) error {
+	wormgatePort = c.String("wormgateport")
 	allHosts = rocks.ListNodes()
 
 	hostname, _ = os.Hostname()
@@ -70,6 +68,8 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
+
+	return nil
 }
 
 // WormGateHandler lol

@@ -5,7 +5,9 @@ import (
 	"log"
 	"os"
 
+	"github.com/hoffa2/worm/segment"
 	"github.com/hoffa2/worm/visualize"
+	"github.com/hoffa2/worm/wormgate"
 	"github.com/urfave/cli"
 )
 
@@ -39,6 +41,48 @@ func main() {
 				cli.StringFlag{
 					Name:  "segmentport, sp",
 					Usage: "segment port (prefix with colon)",
+				},
+			},
+		},
+		{
+			Name:  "segment",
+			Usage: "run segment",
+			Action: func(c *cli.Context) error {
+				if !c.IsSet("mode") {
+					return errors.New("Wormport flag must be set")
+				}
+				mode := c.String("mode")
+				if mode == "spread" {
+					return segment.SendSegment(c)
+				} else if mode == "start" {
+					return segment.StartSegmentServer(c)
+				}
+			},
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "wormport, wp",
+					Usage: "Wormagte port (prefix with colon)",
+				},
+				cli.StringFlag{
+					Name:  "segmentport, sp",
+					Usage: "segment port (prefix with colon)",
+				},
+				cli.StringFlag{
+					Name:  "mode, m",
+					Usage: "Spread or Start",
+				},
+			},
+		},
+		{
+			Name:  "wormgate",
+			Usage: "Starts the wormgate",
+			Action: func(c *cli.Context) error {
+				return wormgate.Run(c)
+			},
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "wormport, wp",
+					Usage: "Wormagte port (prefix with colon)",
 				},
 			},
 		},
