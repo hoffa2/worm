@@ -67,6 +67,12 @@ func SendSegment(c *cli.Context) error {
 func StartSegmentServer(c *cli.Context) error {
 	segmentPort := c.String("segmentport")
 
+	// Startup case
+	// Only bootstrap segments if "target" is set
+	if c.IsSet("target") {
+		targetSegments := c.String("target")
+	}
+
 	srv := http.Server{}
 
 	l, err := net.Listen("tcp", ":"+segmentPort)
