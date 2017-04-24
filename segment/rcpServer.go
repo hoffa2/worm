@@ -1,7 +1,6 @@
 package segment
 
 import (
-	"context"
 	"errors"
 	"net"
 
@@ -20,7 +19,7 @@ type RpcServer struct {
 
 // SetupGossip start listening for aliens
 // param port port on which to accept connections
-func SetupRPCServer(chord chord.ChordServer, port string) (*Gossip, error) {
+func SetupRPCServer(chord chord.ChordServer, port string) (*RpcServer, error) {
 	conn, err := net.Listen("udp", "0.0.0.0:"+port)
 	if err != nil {
 		return nil, err
@@ -33,7 +32,7 @@ func SetupRPCServer(chord chord.ChordServer, port string) (*Gossip, error) {
 		server.Serve(conn)
 	}()
 
-	goss := &Gossip{
+	goss := &RpcServer{
 		rpcServer: server,
 	}
 
@@ -42,24 +41,4 @@ func SetupRPCServer(chord chord.ChordServer, port string) (*Gossip, error) {
 
 func (r RpcServer) CloseServer() {
 	r.rpcServer.GracefulStop()
-}
-
-func (r RpcServer) Alive(ctx context.Context, empty *chord.Empty) (*chord.Alive, error) {
-
-}
-
-func (r RpcServer) FindPredecessor(ctx context.Context, node *chord.Node) (*chord.FromNode, error) {
-
-}
-
-func (r RpcServer) Init(ctx context.Context, node *chord.Node) (*chord.Empty, error) {
-
-}
-
-func (r RpcServer) Notify(ctx context.Context, node *chord.Node) (*chord.Empty, error) {
-
-}
-
-func (r RpcServer) Shutdown(ctx context.Context, empty *chord.Empty) (*chord.Empty, error) {
-
 }

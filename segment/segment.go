@@ -25,6 +25,8 @@ var hostname string
 var targetSegments int32
 
 type segment struct {
+	// Underlying listener
+	// for the http server
 	net.Listener
 }
 

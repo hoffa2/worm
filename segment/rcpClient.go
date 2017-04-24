@@ -6,7 +6,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/hoffa2/worm/chord"
+	"github.com/hoffa2/worm/protobuf/chord"
+	"github.com/hoffa2/worm/protobuf/grpc"
 )
 
 type Remote struct {
