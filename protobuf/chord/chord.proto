@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+service chord {
+    rpc Alive (Empty) returns (alive) {}
+    rpc FindPredecessor (Node) returns (FromNode) {}
+    rpc Init (Node) returns (Empty) {}
+    rpc Notify (Node) returns (Empty) {}
+    rpc Shutdown (Empty) returns (Empty) {}
+}
+
+message Empty {
+
+}
+
+message Node {
+    string ID = 1;
+    string ip_address = 2;
+    string rpc_port = 3;
+}
+
+message alive {
+    bool is_alive = 1;
+}
+
+message ToNode {
+    oneof msg {
+        bool shutdown = 1;
+    }
+}
+
+message FromNode {
+    oneof msg {
+        bool ok = 1;
+    }
+}

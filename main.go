@@ -57,6 +57,7 @@ func main() {
 				} else if mode == "start" {
 					return segment.StartSegmentServer(c)
 				}
+				return errors.New("Mode must be either \"mode\" or \"spread\"")
 			},
 			Flags: []cli.Flag{
 				cli.StringFlag{

@@ -28,7 +28,7 @@ type segment struct {
 	net.Listener
 }
 
-func SendSegment(c *cli.Context) {
+func SendSegment(c *cli.Context) error {
 	host := c.String("host")
 	segmentPort := c.String("segmentport")
 	wormgatePort := c.String("wormgateport")
@@ -45,12 +45,12 @@ func SendSegment(c *cli.Context) {
 
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Panic("Could not read input file", err)
+		return fmt.Errorf("Could not read input file", err)
 	}
 
 	resp, err := http.Post(url, "string", file)
 	if err != nil {
-		log.Panic("POST error ", err)
+		return fmt.Errorf("POST error ", err)
 	}
 
 	io.Copy(ioutil.Discard, resp.Body)
@@ -61,9 +61,10 @@ func SendSegment(c *cli.Context) {
 	} else {
 		log.Println("Response: ", resp)
 	}
+	return nil
 }
 
-func StartSegmentServer(c *cli.Context) {
+func StartSegmentServer(c *cli.Context) error {
 	segmentPort := c.String("segmentport")
 
 	srv := http.Server{}
@@ -103,8 +104,9 @@ func StartSegmentServer(c *cli.Context) {
 
 	err = srv.Serve(segment.Listener)
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
+	return nil
 }
 
 // IndexHandler handles lol

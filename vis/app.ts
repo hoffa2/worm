@@ -59,9 +59,7 @@ class Grapher {
         }
 
     }
-    private lol() {
 
-    }
     public addSegment() {
         let self = this;
         var message = new proto.FromClient;
