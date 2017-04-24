@@ -106,7 +106,7 @@ func StartSegmentServer(c *cli.Context) error {
 	log.Printf("Starting segment server on %s%s\n", hostname, segmentPort)
 	log.Printf("Reachable hosts: %s", strings.Join(fetchReachableHosts(), " "))
 
-	go runSegmentUntilShutdown()
+	go segment.runSegmentUntilShutdown()
 
 	err = srv.Serve(segment.Listener)
 	if err != nil {
@@ -178,6 +178,6 @@ func fetchReachableHosts() []string {
 	return nodes
 }
 
-func runSegmentUntilShutdown() {
+func (s *segment) runSegmentUntilShutdown() {
 
 }
