@@ -1,6 +1,7 @@
 package segment
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -97,17 +98,16 @@ func StartSegmentServer(c *cli.Context) error {
 		syscall.SIGTERM,
 		syscall.SIGQUIT,
 	)
+	segment := &segment{
+		Listener: l,
+	}
 
 	// Making sure that the port
 	// is closed if we are killed
 	go func() {
 		_ = <-sigc
-		l.Close()
+		segment.Shutdown()
 	}()
-
-	segment := &segment{
-		Listener: l,
-	}
 
 	http.HandleFunc("/", segment.IndexHandler)
 	http.HandleFunc("/targetsegments", segment.targetSegmentsHandler)
@@ -196,4 +196,15 @@ func fetchReachableHosts() []string {
 
 func (s *segment) runSegmentUntilShutdown() {
 
+}
+
+func (s *segment) Shutdown() {
+	s.RpcServer.GracefulStop()
+	s.Listener.Close()
+}
+
+func (s *segment) bootstrapNodes(int target) {
+	for i := 0; i < targert; i++ {
+		sendSegment()
+	}
 }
