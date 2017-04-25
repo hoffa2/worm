@@ -47,12 +47,12 @@ func SendSegment(c *cli.Context) error {
 
 	file, err := os.Open(filename)
 	if err != nil {
-		return fmt.Errorf("Could not read input file", err)
+		return fmt.Errorf("Could not read input file %s", err.Error())
 	}
 
 	resp, err := http.Post(url, "string", file)
 	if err != nil {
-		return fmt.Errorf("POST error ", err)
+		return fmt.Errorf("POST error %s", err.Error())
 	}
 
 	io.Copy(ioutil.Discard, resp.Body)
