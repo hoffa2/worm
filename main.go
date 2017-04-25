@@ -51,13 +51,7 @@ func main() {
 				if !c.IsSet("mode") {
 					return errors.New("Wormport flag must be set")
 				}
-				mode := c.String("mode")
-				if mode == "spread" {
-					return segment.SendSegment(c)
-				} else if mode == "start" {
-					return segment.StartSegmentServer(c)
-				}
-				return errors.New("Mode must be either \"mode\" or \"spread\"")
+				return segment.Run(c)
 			},
 			Flags: []cli.Flag{
 				cli.StringFlag{
@@ -71,6 +65,10 @@ func main() {
 				cli.StringFlag{
 					Name:  "mode, m",
 					Usage: "Spread or Start",
+				},
+				cli.IntFlag{
+					Name:  "target, t",
+					Usage: "Inital number of targets (Set only if the segments is the first in the network)",
 				},
 			},
 		},

@@ -28,12 +28,23 @@ type segment struct {
 	// Underlying listener
 	// for the http server
 	net.Listener
+	*Kademlia
+	*RpcServer
 }
 
-func SendSegment(c *cli.Context) error {
+func Run(c *cli.Context) error {
 	host := c.String("host")
 	segmentPort := c.String("segmentport")
 	wormgatePort := c.String("wormgateport")
+	if mode == "spread" {
+		return SendSegment(host, segmentPort, wormgatPort)
+	} else if mode == "start" {
+		return StartSegmentServer(c)
+	}
+	return errors.New("Mode must be either spread or start")
+}
+
+func SendSegment(host, segmentPort, wormgatePort string) error {
 
 	url := fmt.Sprintf("http://%s%s/wormgate?sp=%s", host, wormgatePort, segmentPort)
 	filename := "tmp.tar.gz"
@@ -71,9 +82,6 @@ func StartSegmentServer(c *cli.Context) error {
 
 	// Startup case
 	// Only bootstrap segments if "target" is set
-	if c.IsSet("target") {
-		targetSegments := c.String("target")
-	}
 
 	srv := http.Server{}
 
@@ -107,6 +115,12 @@ func StartSegmentServer(c *cli.Context) error {
 
 	log.Printf("Starting segment server on %s%s\n", hostname, segmentPort)
 	log.Printf("Reachable hosts: %s", strings.Join(fetchReachableHosts(), " "))
+
+	if c.IsSet("target") {
+		bootstrapNodes(c.Int("target"))
+	} else {
+
+	}
 
 	go segment.runSegmentUntilShutdown()
 
