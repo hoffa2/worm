@@ -61,7 +61,7 @@ proto.addnode.prototype.toObject = function(opt_includeInstance) {
  */
 proto.addnode.toObject = function(includeInstance, msg) {
   var f, obj = {
-    nodeId: jspb.Message.getFieldWithDefault(msg, 1, 0)
+    nodeId: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
 
   if (includeInstance) {
@@ -99,7 +99,7 @@ proto.addnode.deserializeBinaryFromReader = function(msg, reader) {
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {number} */ (reader.readInt32());
+      var value = /** @type {string} */ (reader.readString());
       msg.setNodeId(value);
       break;
     default:
@@ -141,8 +141,8 @@ proto.addnode.prototype.serializeBinary = function() {
 proto.addnode.prototype.serializeBinaryToWriter = function (writer) {
   var f = undefined;
   f = this.getNodeId();
-  if (f !== 0) {
-    writer.writeInt32(
+  if (f.length > 0) {
+    writer.writeString(
       1,
       f
     );
@@ -151,15 +151,15 @@ proto.addnode.prototype.serializeBinaryToWriter = function (writer) {
 
 
 /**
- * optional int32 node_id = 1;
- * @return {number}
+ * optional string node_id = 1;
+ * @return {string}
  */
 proto.addnode.prototype.getNodeId = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
-/** @param {number} value */
+/** @param {string} value */
 proto.addnode.prototype.setNodeId = function(value) {
   jspb.Message.setField(this, 1, value);
 };

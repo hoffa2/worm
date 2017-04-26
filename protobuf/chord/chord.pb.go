@@ -10,6 +10,7 @@ It is generated from these files:
 
 It has these top-level messages:
 	Empty
+	NewTarget
 	Node
 	Alive
 	ToNode
@@ -45,6 +46,30 @@ func (m *Empty) String() string            { return proto.CompactTextString(m) }
 func (*Empty) ProtoMessage()               {}
 func (*Empty) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
+type NewTarget struct {
+	From int32 `protobuf:"varint,1,opt,name=from" json:"from,omitempty"`
+	To   int32 `protobuf:"varint,2,opt,name=to" json:"to,omitempty"`
+}
+
+func (m *NewTarget) Reset()                    { *m = NewTarget{} }
+func (m *NewTarget) String() string            { return proto.CompactTextString(m) }
+func (*NewTarget) ProtoMessage()               {}
+func (*NewTarget) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+
+func (m *NewTarget) GetFrom() int32 {
+	if m != nil {
+		return m.From
+	}
+	return 0
+}
+
+func (m *NewTarget) GetTo() int32 {
+	if m != nil {
+		return m.To
+	}
+	return 0
+}
+
 type Node struct {
 	ID        string `protobuf:"bytes,1,opt,name=ID" json:"ID,omitempty"`
 	IpAddress string `protobuf:"bytes,2,opt,name=ip_address,json=ipAddress" json:"ip_address,omitempty"`
@@ -54,7 +79,7 @@ type Node struct {
 func (m *Node) Reset()                    { *m = Node{} }
 func (m *Node) String() string            { return proto.CompactTextString(m) }
 func (*Node) ProtoMessage()               {}
-func (*Node) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (*Node) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
 func (m *Node) GetID() string {
 	if m != nil {
@@ -78,19 +103,35 @@ func (m *Node) GetRpcPort() string {
 }
 
 type Alive struct {
-	IsAlive bool `protobuf:"varint,1,opt,name=is_alive,json=isAlive" json:"is_alive,omitempty"`
+	IsAlive bool    `protobuf:"varint,1,opt,name=is_alive,json=isAlive" json:"is_alive,omitempty"`
+	Target  int32   `protobuf:"varint,2,opt,name=target" json:"target,omitempty"`
+	Nodes   []*Node `protobuf:"bytes,3,rep,name=nodes" json:"nodes,omitempty"`
 }
 
 func (m *Alive) Reset()                    { *m = Alive{} }
 func (m *Alive) String() string            { return proto.CompactTextString(m) }
 func (*Alive) ProtoMessage()               {}
-func (*Alive) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (*Alive) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
 func (m *Alive) GetIsAlive() bool {
 	if m != nil {
 		return m.IsAlive
 	}
 	return false
+}
+
+func (m *Alive) GetTarget() int32 {
+	if m != nil {
+		return m.Target
+	}
+	return 0
+}
+
+func (m *Alive) GetNodes() []*Node {
+	if m != nil {
+		return m.Nodes
+	}
+	return nil
 }
 
 type ToNode struct {
@@ -102,7 +143,7 @@ type ToNode struct {
 func (m *ToNode) Reset()                    { *m = ToNode{} }
 func (m *ToNode) String() string            { return proto.CompactTextString(m) }
 func (*ToNode) ProtoMessage()               {}
-func (*ToNode) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+func (*ToNode) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
 
 type isToNode_Msg interface {
 	isToNode_Msg()
@@ -191,7 +232,7 @@ type FromNode struct {
 func (m *FromNode) Reset()                    { *m = FromNode{} }
 func (m *FromNode) String() string            { return proto.CompactTextString(m) }
 func (*FromNode) ProtoMessage()               {}
-func (*FromNode) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+func (*FromNode) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
 
 type isFromNode_Msg interface {
 	isFromNode_Msg()
@@ -273,6 +314,7 @@ func _FromNode_OneofSizer(msg proto.Message) (n int) {
 
 func init() {
 	proto.RegisterType((*Empty)(nil), "Empty")
+	proto.RegisterType((*NewTarget)(nil), "NewTarget")
 	proto.RegisterType((*Node)(nil), "Node")
 	proto.RegisterType((*Alive)(nil), "alive")
 	proto.RegisterType((*ToNode)(nil), "ToNode")
@@ -290,10 +332,8 @@ const _ = grpc.SupportPackageIsVersion4
 // Client API for Chord service
 
 type ChordClient interface {
-	Alive(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Alive, error)
-	FindPredecessor(ctx context.Context, in *Node, opts ...grpc.CallOption) (*FromNode, error)
-	Init(ctx context.Context, in *Node, opts ...grpc.CallOption) (*Empty, error)
-	Notify(ctx context.Context, in *Node, opts ...grpc.CallOption) (*Empty, error)
+	Alive(ctx context.Context, in *Alive, opts ...grpc.CallOption) (*Alive, error)
+	Notify(ctx context.Context, in *NewTarget, opts ...grpc.CallOption) (*Alive, error)
 	Shutdown(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
 }
 
@@ -305,7 +345,7 @@ func NewChordClient(cc *grpc.ClientConn) ChordClient {
 	return &chordClient{cc}
 }
 
-func (c *chordClient) Alive(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Alive, error) {
+func (c *chordClient) Alive(ctx context.Context, in *Alive, opts ...grpc.CallOption) (*Alive, error) {
 	out := new(Alive)
 	err := grpc.Invoke(ctx, "/chord/Alive", in, out, c.cc, opts...)
 	if err != nil {
@@ -314,26 +354,8 @@ func (c *chordClient) Alive(ctx context.Context, in *Empty, opts ...grpc.CallOpt
 	return out, nil
 }
 
-func (c *chordClient) FindPredecessor(ctx context.Context, in *Node, opts ...grpc.CallOption) (*FromNode, error) {
-	out := new(FromNode)
-	err := grpc.Invoke(ctx, "/chord/FindPredecessor", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *chordClient) Init(ctx context.Context, in *Node, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
-	err := grpc.Invoke(ctx, "/chord/Init", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *chordClient) Notify(ctx context.Context, in *Node, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
+func (c *chordClient) Notify(ctx context.Context, in *NewTarget, opts ...grpc.CallOption) (*Alive, error) {
+	out := new(Alive)
 	err := grpc.Invoke(ctx, "/chord/Notify", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -353,10 +375,8 @@ func (c *chordClient) Shutdown(ctx context.Context, in *Empty, opts ...grpc.Call
 // Server API for Chord service
 
 type ChordServer interface {
-	Alive(context.Context, *Empty) (*Alive, error)
-	FindPredecessor(context.Context, *Node) (*FromNode, error)
-	Init(context.Context, *Node) (*Empty, error)
-	Notify(context.Context, *Node) (*Empty, error)
+	Alive(context.Context, *Alive) (*Alive, error)
+	Notify(context.Context, *NewTarget) (*Alive, error)
 	Shutdown(context.Context, *Empty) (*Empty, error)
 }
 
@@ -365,7 +385,7 @@ func RegisterChordServer(s *grpc.Server, srv ChordServer) {
 }
 
 func _Chord_Alive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
+	in := new(Alive)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -377,49 +397,13 @@ func _Chord_Alive_Handler(srv interface{}, ctx context.Context, dec func(interfa
 		FullMethod: "/chord/Alive",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChordServer).Alive(ctx, req.(*Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Chord_FindPredecessor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Node)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChordServer).FindPredecessor(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/chord/FindPredecessor",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChordServer).FindPredecessor(ctx, req.(*Node))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Chord_Init_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Node)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChordServer).Init(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/chord/Init",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChordServer).Init(ctx, req.(*Node))
+		return srv.(ChordServer).Alive(ctx, req.(*Alive))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Chord_Notify_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Node)
+	in := new(NewTarget)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -431,7 +415,7 @@ func _Chord_Notify_Handler(srv interface{}, ctx context.Context, dec func(interf
 		FullMethod: "/chord/Notify",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChordServer).Notify(ctx, req.(*Node))
+		return srv.(ChordServer).Notify(ctx, req.(*NewTarget))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -463,14 +447,6 @@ var _Chord_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Chord_Alive_Handler,
 		},
 		{
-			MethodName: "FindPredecessor",
-			Handler:    _Chord_FindPredecessor_Handler,
-		},
-		{
-			MethodName: "Init",
-			Handler:    _Chord_Init_Handler,
-		},
-		{
 			MethodName: "Notify",
 			Handler:    _Chord_Notify_Handler,
 		},
@@ -486,23 +462,25 @@ var _Chord_serviceDesc = grpc.ServiceDesc{
 func init() { proto.RegisterFile("protobuf/chord/chord.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 288 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x64, 0x50, 0xd1, 0x4e, 0xc2, 0x30,
-	0x14, 0x1d, 0x83, 0x8e, 0x71, 0x1f, 0xd4, 0xf4, 0x45, 0x20, 0x98, 0x98, 0x1a, 0x13, 0x5f, 0x9c,
-	0x89, 0x7e, 0x01, 0x06, 0x89, 0xbc, 0x90, 0x65, 0xfa, 0xbe, 0xc0, 0x5a, 0xa4, 0xc1, 0xed, 0x36,
-	0x6d, 0xd1, 0xf0, 0x2d, 0xfe, 0xac, 0xd9, 0xdd, 0x20, 0x26, 0xbe, 0x34, 0xed, 0x39, 0xa7, 0xe7,
-	0xdc, 0x73, 0x61, 0x6c, 0x2c, 0x7a, 0x5c, 0xef, 0x37, 0x0f, 0xc5, 0x16, 0xad, 0x6c, 0xce, 0x84,
-	0x40, 0xd1, 0x07, 0xf6, 0x52, 0x1a, 0x7f, 0x10, 0x29, 0xf4, 0x96, 0x28, 0x15, 0x3f, 0x83, 0x70,
-	0x31, 0x1b, 0x76, 0xae, 0x3b, 0x77, 0x83, 0x2c, 0x5c, 0xcc, 0xf8, 0x15, 0x80, 0x36, 0xf9, 0x4a,
-	0x4a, 0xab, 0x9c, 0x1b, 0x86, 0x84, 0x0f, 0xb4, 0x99, 0x36, 0x00, 0x1f, 0x41, 0x6c, 0x4d, 0x91,
-	0x1b, 0xb4, 0x7e, 0xd8, 0x25, 0xb2, 0x6f, 0x4d, 0x91, 0xa2, 0xf5, 0x42, 0x00, 0x5b, 0x7d, 0xea,
-	0x2f, 0x55, 0x6b, 0xb4, 0xcb, 0xe9, 0x4e, 0xc6, 0x71, 0xd6, 0xd7, 0x6e, 0x5a, 0x3f, 0xc5, 0x3d,
-	0x44, 0xef, 0x48, 0xb9, 0x13, 0x88, 0xdd, 0x76, 0xef, 0x25, 0x7e, 0x57, 0x8d, 0xe8, 0x35, 0xc8,
-	0x4e, 0xc8, 0x33, 0x83, 0x6e, 0xe9, 0x3e, 0xc4, 0x0d, 0xc4, 0x73, 0x8b, 0x25, 0x7d, 0xb8, 0x80,
-	0x10, 0x77, 0x27, 0x69, 0x88, 0xbb, 0x56, 0xf4, 0xf8, 0xd3, 0x01, 0x46, 0x15, 0xf9, 0x08, 0x18,
-	0xc5, 0xf0, 0x28, 0xa1, 0x92, 0xe3, 0x28, 0xa1, 0x29, 0x44, 0xc0, 0x6f, 0xe1, 0x7c, 0xae, 0x2b,
-	0x99, 0x5a, 0x25, 0x55, 0xa1, 0x9c, 0x43, 0xcb, 0x59, 0x52, 0xfb, 0x8e, 0x07, 0xc9, 0x31, 0x42,
-	0x04, 0xfc, 0x12, 0x7a, 0x8b, 0x4a, 0xfb, 0x23, 0xd7, 0xfa, 0x88, 0x80, 0x8f, 0x20, 0x5a, 0xa2,
-	0xd7, 0x9b, 0xc3, 0x7f, 0x6a, 0x02, 0xf1, 0x5b, 0x3b, 0xf7, 0x9f, 0xe0, 0x96, 0x5d, 0x47, 0xb4,
-	0xf7, 0xa7, 0xdf, 0x00, 0x00, 0x00, 0xff, 0xff, 0x91, 0xff, 0x8e, 0x8b, 0x95, 0x01, 0x00, 0x00,
+	// 312 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x4c, 0x91, 0x41, 0x6b, 0x32, 0x31,
+	0x10, 0x86, 0x75, 0xd7, 0xac, 0xbb, 0xf3, 0xc1, 0x47, 0xc9, 0xa1, 0xac, 0xd6, 0x16, 0x49, 0x2f,
+	0x5e, 0xba, 0x82, 0xfd, 0x05, 0x16, 0x5b, 0xea, 0x45, 0x64, 0x2b, 0xf4, 0x68, 0xd5, 0x8d, 0x1a,
+	0xec, 0x3a, 0x21, 0x89, 0x15, 0xff, 0x7d, 0x71, 0x36, 0x2c, 0xbd, 0x64, 0x26, 0xef, 0xbc, 0x99,
+	0x3c, 0xcc, 0x40, 0x57, 0x1b, 0x74, 0xb8, 0x3e, 0x6d, 0x87, 0x9b, 0x3d, 0x9a, 0xa2, 0x3a, 0x33,
+	0x12, 0x45, 0x1b, 0xd8, 0x6b, 0xa9, 0xdd, 0x45, 0x0c, 0x21, 0x99, 0xc9, 0xf3, 0x62, 0x65, 0x76,
+	0xd2, 0x71, 0x0e, 0xad, 0xad, 0xc1, 0x32, 0x6d, 0xf6, 0x9b, 0x03, 0x96, 0x53, 0xce, 0xff, 0x43,
+	0xe0, 0x30, 0x0d, 0x48, 0x09, 0x1c, 0x8a, 0x39, 0xb4, 0x66, 0x58, 0xc8, 0xab, 0x3e, 0x9d, 0x90,
+	0x33, 0xc9, 0x83, 0xe9, 0x84, 0xdf, 0x03, 0x28, 0xbd, 0x5c, 0x15, 0x85, 0x91, 0xd6, 0x92, 0x3f,
+	0xc9, 0x13, 0xa5, 0xc7, 0x95, 0xc0, 0x3b, 0x10, 0x1b, 0xbd, 0x59, 0x6a, 0x34, 0x2e, 0x0d, 0xa9,
+	0xd8, 0x36, 0x7a, 0x33, 0x47, 0xe3, 0xc4, 0x27, 0xb0, 0xd5, 0xb7, 0xfa, 0x91, 0x57, 0x8f, 0xb2,
+	0x4b, 0xca, 0xa9, 0x71, 0x9c, 0xb7, 0x95, 0x1d, 0x53, 0xe9, 0x16, 0x22, 0x47, 0x8c, 0x9e, 0xc4,
+	0xdf, 0xf8, 0x1d, 0xb0, 0x23, 0x16, 0xd2, 0xa6, 0x61, 0x3f, 0x1c, 0xfc, 0x1b, 0xb1, 0xec, 0xca,
+	0x96, 0x57, 0x9a, 0x78, 0x82, 0x68, 0x81, 0x04, 0xdb, 0x83, 0xd8, 0xee, 0x4f, 0xae, 0xc0, 0xf3,
+	0xb1, 0xea, 0xfc, 0xde, 0xc8, 0x6b, 0xe5, 0x85, 0x41, 0x58, 0xda, 0x9d, 0x78, 0x84, 0xf8, 0xcd,
+	0x60, 0x49, 0x0f, 0x6e, 0x20, 0xc0, 0x43, 0x6d, 0x0d, 0xf0, 0xe0, 0x4d, 0xa3, 0x2f, 0x60, 0x34,
+	0x47, 0xde, 0x01, 0x56, 0xa1, 0x45, 0x19, 0x11, 0x77, 0x7d, 0x14, 0x0d, 0xfe, 0x00, 0xd1, 0x0c,
+	0x9d, 0xda, 0x5e, 0x38, 0x64, 0xf5, 0x70, 0xff, 0xd4, 0x7b, 0x10, 0x7f, 0xf8, 0xbf, 0x79, 0x94,
+	0xd1, 0x1e, 0xba, 0x3e, 0x8a, 0xc6, 0x3a, 0xa2, 0x0d, 0x3d, 0xff, 0x06, 0x00, 0x00, 0xff, 0xff,
+	0x9d, 0x83, 0xcf, 0xee, 0xbf, 0x01, 0x00, 0x00,
 }

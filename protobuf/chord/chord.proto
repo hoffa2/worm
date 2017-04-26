@@ -1,15 +1,18 @@
 syntax = "proto3";
 
 service chord {
-    rpc Alive (Empty) returns (alive) {}
-    rpc FindPredecessor (Node) returns (FromNode) {}
-    rpc Init (Node) returns (Empty) {}
-    rpc Notify (Node) returns (Empty) {}
+    rpc Alive (alive) returns (alive) {}
+    rpc Notify (NewTarget) returns (alive) {}
     rpc Shutdown (Empty) returns (Empty) {}
 }
 
 message Empty {
 
+}
+
+message NewTarget {
+    int32 from = 1;
+    int32 to = 2;
 }
 
 message Node {
@@ -20,6 +23,8 @@ message Node {
 
 message alive {
     bool is_alive = 1;
+    int32 target = 2;
+    repeated Node nodes = 3;
 }
 
 message ToNode {

@@ -25,7 +25,7 @@ var Grapher = (function () {
                 var ToClient = proto.ToClient.deserializeBinary(this.result);
                 switch (ToClient.getMsgCase()) {
                     case proto.ToClient.MsgCase.ADDNODE:
-                        ToClient.getNodeid();
+                        self.nodeviz.addNode(ToClient.getNodeid());
                         break;
                     case proto.ToClient.MsgCase.TARGET:
                         console.log("Jeeeei");
@@ -38,8 +38,6 @@ var Grapher = (function () {
             };
             reader.readAsArrayBuffer(e.data);
         };
-    };
-    Grapher.prototype.lol = function () {
     };
     Grapher.prototype.addSegment = function () {
         var self = this;
@@ -56,8 +54,8 @@ var NodeVisualizer = (function () {
     function NodeVisualizer() {
         var container = document.getElementById('mynetwork');
         var data = {
-            nodes: dataset,
-            edges: edges
+            nodes: this.dataset,
+            edges: this.edges
         };
         var options = {
             width: '900px',
@@ -81,35 +79,28 @@ var NodeVisualizer = (function () {
                 width: 2
             }
         };
-        network = new vis.Network(container, data, options);
+        this.network = new vis.Network(container, data, options);
     }
-    NodeVisualizer.prototype.addNode = function (node) {
-        dataset.add({ id: node.data.ID, label: message.data.ID });
-        nextid = message.data.ID + "next";
-        previd = message.data.ID + "prev";
-        edges.update({ id: nextid, from: message.data.ID, to: message.data.Next, arrows: 'to' });
-        edges.update({ id: previd, from: message.data.ID, to: message.data.Prev, color: { color: "red" }, arrows: 'to' });
-        if (nodata) {
-            init();
-            console.log("Initializing network");
-            nodata = false;
-        }
+    NodeVisualizer.prototype.addNode = function (nodeid) {
+        this.dataset.add({ id: nodeid, label: nodeid });
+        //edges.update({id: nextid, from: message.data.ID, to: message.data.Next, arrows:'to'});
+        //edges.update({id: previd, from: message.data.ID, to: message.data.Prev, color:{color:"red"}, arrows:'to'});
     };
     NodeVisualizer.prototype.removeNode = function (node) {
-        dataset.remove({ id: message.data.ID });
+        this.dataset.remove({ id: node });
     };
     NodeVisualizer.prototype.updateNode = function (node) {
-        nextid = message.data.ID + "next";
-        previd = message.data.ID + "prev";
-        edges.update({ id: nextid, from: message.data.ID, to: message.data.Next });
-        edges.update({ id: previd, from: message.data.ID, to: message.data.Prev });
-        console.log(message.data.successors);
+        //nextid = message.data.ID + "next"
+        //previd = message.data.ID + "prev"
+        //edges.update({id: nextid, from: message.data.ID, to: message.data.Next});
+        //edges.update({id: previd, from: message.data.ID, to: message.data.Prev})
+        //console.log(message.data.successors)
     };
     NodeVisualizer.prototype.stabilize = function () {
-        network.stabilize();
+        this.network.stabilize();
     };
     NodeVisualizer.prototype.disble_physics = function () {
-        network.setOptions({ physics: false });
+        this.network.setOptions({ physics: false });
     };
     return NodeVisualizer;
 }());

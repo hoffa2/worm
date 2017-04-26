@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/hoffa2/worm/organizer"
 	"github.com/hoffa2/worm/segment"
-	"github.com/hoffa2/worm/visualize"
 	"github.com/hoffa2/worm/wormgate"
 	"github.com/urfave/cli"
 )
@@ -31,7 +31,7 @@ func main() {
 				if !c.IsSet("segmentport") {
 					return errors.New("segmentport flag must be set")
 				}
-				return visualize.Run(c)
+				return organizer.Run(c)
 			},
 			Flags: []cli.Flag{
 				cli.StringFlag{

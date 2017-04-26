@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net"
 
-	"github.com/hoffa2/worm/chord"
+	"github.com/hoffa2/worm/protobuf/chord"
 
 	"google.golang.org/grpc"
 )
@@ -19,17 +19,12 @@ type RpcServer struct {
 
 // SetupGossip start listening for aliens
 // param port port on which to accept connections
-func SetupRPCServer(chord chord.ChordServer, port string) (*RpcServer, error) {
-	conn, err := net.Listen("udp", "0.0.0.0:"+port)
-	if err != nil {
-		return nil, err
-	}
-
+func SetupRPCServer(s chord.ChordServer, port string, l net.Listener) (*RpcServer, error) {
 	server := grpc.NewServer()
-	chord.RegisterChordServer(server, chord)
+	chord.RegisterChordServer(server, s)
 
 	go func() {
-		server.Serve(conn)
+		server.Serve(l)
 	}()
 
 	goss := &RpcServer{

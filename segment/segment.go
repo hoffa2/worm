@@ -3,6 +3,9 @@ package segment
 import (
 	"errors"
 	"fmt"
+	"github.com/hoffa2/worm/protobuf/chord"
+	"github.com/soheilhy/cmux"
+	"github.com/urfave/cli"
 	"io"
 	"io/ioutil"
 	"log"
@@ -12,33 +15,34 @@ import (
 	"os/exec"
 	"os/signal"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"syscall"
-
-	"github.com/urfave/cli"
+	"time"
 )
 
-var wormgatePort string
-var segmentPort string
-
-var hostname string
-
-var targetSegments int32
+var (
+	ErrNoReachableHosts = errors.New("No reachableHosts")
+)
 
 type segment struct {
 	// Underlying listener
 	// for the http server
 	net.Listener
-	*Kademlia
-	*RpcServer
+	*Heartbeat
+	hostsLock      sync.RWMutex
+	reachableHosts []string
+	wormgatePort   string
+	segmentPort    string
+	hostname       string
 }
 
 func Run(c *cli.Context) error {
 	host := c.String("host")
 	segmentPort := c.String("segmentport")
 	wormgatePort := c.String("wormgateport")
+	mode := c.String("mode")
 	if mode == "spread" {
-		return SendSegment(host, segmentPort, wormgatPort)
+		return SendSegment(host, segmentPort, wormgatePort)
 	} else if mode == "start" {
 		return StartSegmentServer(c)
 	}
@@ -78,18 +82,26 @@ func SendSegment(host, segmentPort, wormgatePort string) error {
 	return nil
 }
 
+func (s *segment) StartSegment(host string) error {
+	return SendSegment(host, s.segmentPort, s.wormgatePort)
+}
+
 func StartSegmentServer(c *cli.Context) error {
 	segmentPort := c.String("segmentport")
+	target := c.Int("target")
+	wormgatePort := c.String("wormgateport")
 
 	// Startup case
 	// Only bootstrap segments if "target" is set
 
 	srv := http.Server{}
 
-	l, err := net.Listen("tcp", ":"+segmentPort)
+	l, err := net.Listen("udp", ":"+segmentPort)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	hostname, _ := os.Hostname()
 
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc,
@@ -98,9 +110,23 @@ func StartSegmentServer(c *cli.Context) error {
 		syscall.SIGTERM,
 		syscall.SIGQUIT,
 	)
+
+	m := cmux.New(l)
+
+	grpcL := m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+	httpL := m.Match(cmux.HTTP1Fast())
+
 	segment := &segment{
-		Listener: l,
+		Listener:     l,
+		segmentPort:  segmentPort,
+		wormgatePort: wormgatePort,
 	}
+	segment.Heartbeat, err = SetupHeartbeat(hostname, segmentPort, segment, grpcL)
+	if err != nil {
+		return err
+	}
+
+	segment.UpdateNetworkSizeTarget(int32(target))
 
 	// Making sure that the port
 	// is closed if we are killed
@@ -114,21 +140,10 @@ func StartSegmentServer(c *cli.Context) error {
 	http.HandleFunc("/shutdown", segment.shutdownHandler)
 
 	log.Printf("Starting segment server on %s%s\n", hostname, segmentPort)
-	log.Printf("Reachable hosts: %s", strings.Join(fetchReachableHosts(), " "))
+	//log.Printf("Reachable hosts: %s", strings.Join(fetchReachableHosts(), " "))
 
-	if c.IsSet("target") {
-		bootstrapNodes(c.Int("target"))
-	} else {
-
-	}
-
-	go segment.runSegmentUntilShutdown()
-
-	err = srv.Serve(segment.Listener)
-	if err != nil {
-		return err
-	}
-	return nil
+	go srv.Serve(httpL)
+	return m.Serve()
 }
 
 // IndexHandler handles lol
@@ -156,7 +171,7 @@ func (s segment) targetSegmentsHandler(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 
 	log.Printf("New targetSegments: %d", ts)
-	atomic.StoreInt32(&targetSegments, ts)
+	s.UpdateNetworkSizeTarget(ts)
 }
 
 func (s segment) shutdownHandler(w http.ResponseWriter, r *http.Request) {
@@ -177,8 +192,8 @@ func (s segment) shutdownHandler(w http.ResponseWriter, r *http.Request) {
 	os.Exit(0)
 }
 
-func fetchReachableHosts() []string {
-	url := fmt.Sprintf("http://localhost%s/reachablehosts", wormgatePort)
+func (s segment) fetchReachableHosts() []string {
+	url := fmt.Sprintf("http://localhost%s/reachablehosts", s.wormgatePort)
 	resp, err := http.Get(url)
 	if err != nil {
 		return []string{}
@@ -195,16 +210,41 @@ func fetchReachableHosts() []string {
 }
 
 func (s *segment) runSegmentUntilShutdown() {
+	for {
+		hosts := s.fetchReachableHosts()
+		s.hostsLock.Lock()
+		s.reachableHosts = hosts
+		s.hostsLock.Unlock()
+		time.Sleep(time.Second * 1)
+	}
+}
 
+func (s *segment) IsReachable(host string) bool {
+	for _, h := range s.reachableHosts {
+		if h == host {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *segment) Shutdown() {
-	s.RpcServer.GracefulStop()
 	s.Listener.Close()
 }
 
-func (s *segment) bootstrapNodes(int target) {
-	for i := 0; i < targert; i++ {
-		sendSegment()
+func (s *segment) GetInactiveHost(active map[string]chord.Node) (string, error) {
+	s.hostsLock.RLock()
+	defer s.hostsLock.RUnlock()
+
+	for _, host := range s.reachableHosts {
+		if _, ok := active[host]; ok {
+			return host, nil
+		}
 	}
+	return "", ErrNoReachableHosts
+}
+
+func (s *segment) GetAllReachable() []string {
+	return s.reachableHosts
 }
