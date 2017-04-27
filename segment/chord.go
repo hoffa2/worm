@@ -1,14 +1,17 @@
-package segment
+package main
 
 import (
 	"crypto/sha1"
-	"golang.org/x/net/context"
 	"io"
+	"log"
 	"net"
 	"os"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/net/context"
 
 	"github.com/hoffa2/worm/protobuf/chord"
 )
@@ -19,6 +22,11 @@ type Node interface {
 	GetInactiveHost(map[string]chord.Node) (string, error)
 	StartSegment(string) error
 	GetAllReachable() []string
+}
+
+type lease struct {
+	chord.Node
+	time.Time
 }
 
 type Heartbeat struct {
@@ -32,6 +40,12 @@ type Heartbeat struct {
 	isLeader          bool
 	startupLock       sync.Mutex
 	state             sync.Mutex
+	logError          *log.Logger
+	logInfo           *log.Logger
+	logfile           *os.File
+	leaseLock         sync.Mutex
+	leases            leaseSlice
+	aliveChan         chan chord.Node
 }
 
 func hashValue(str string) string {
@@ -45,6 +59,15 @@ func SetupHeartbeat(addr, port string, nodeinterface Node, l net.Listener) (*Hea
 	if err != nil {
 		return nil, err
 	}
+
+	f, err := os.OpenFile("/var/log/jooonnaslog", os.O_APPEND|os.O_CREATE, 0666)
+	if err != nil {
+		return nil, err
+	}
+
+	infolog := log.New(f, "\x1b[32m"+addr+"\x1b[0m"+" --> ", log.Lshortfile)
+	errlog := log.New(f, "\x1b[31m"+addr+"\x1b[0m"+" --> ", log.Lshortfile)
+
 	n := &chord.Node{
 		ID:        hashValue(h),
 		IpAddress: addr,
@@ -57,8 +80,11 @@ func SetupHeartbeat(addr, port string, nodeinterface Node, l net.Listener) (*Hea
 		self:              n,
 		upperLayer:        nodeinterface,
 		ClientRemote:      remote,
-		NetworkSizeTarget: 0,
+		NetworkSizeTarget: 1,
 		aliveSegments:     make(map[string]chord.Node),
+		logError:          errlog,
+		logInfo:           infolog,
+		logfile:           f,
 	}
 	rpcServer, err := SetupRPCServer(heartbeat, port, l)
 	if err != nil {
@@ -80,7 +106,9 @@ func (h *Heartbeat) UpdateNetworkSizeTarget(newTarget int32) {
 			defer cancel()
 			conn, err := h.GetConn(&h.leader)
 			if err != nil {
-				//Leader is dead
+				h.logError.Println(err)
+				h.electNewLeader()
+				return
 			}
 
 			new := &chord.NewTarget{
@@ -90,29 +118,39 @@ func (h *Heartbeat) UpdateNetworkSizeTarget(newTarget int32) {
 
 			alive, err := conn.Notify(ctx, new)
 			if err != nil {
-				//Leader is dead
+				h.logError.Println(err)
+				h.electNewLeader()
+				return
 			}
-			h.UpdateNetworkSizeTarget(alive.GetTarget())
+			atomic.StoreInt32(&h.NetworkSizeTarget, alive.GetTarget())
 		}()
 	}
-	if diff < 0 {
+	if diff > 0 {
 		go h.startupNodes(int(diff))
-	} else if diff > 0 {
+	} else if diff < 0 {
 		go h.shutdownNodes(int(diff))
 	}
 }
 
+// Alive is only issued to the leader
 func (h *Heartbeat) Alive(ctx context.Context, alive *chord.Alive) (*chord.Alive, error) {
-	return &chord.Alive{IsAlive: true}, nil
+
+	h.aliveChan <- *alive.Node
+
+	return &chord.Alive{IsAlive: true, Target: atomic.LoadInt32(&h.NetworkSizeTarget)}, nil
 }
 
 func (h *Heartbeat) Notify(ctx context.Context, new *chord.NewTarget) (*chord.Alive, error) {
 	h.state.Lock()
 	defer h.state.Unlock()
 
-	h.UpdateNetworkSizeTarget(new.To)
+	if h.isLeader {
+		h.UpdateNetworkSizeTarget(new.To)
+	} else {
 
-	return nil, nil
+	}
+
+	return &chord.Alive{Target: atomic.LoadInt32(&h.NetworkSizeTarget)}, nil
 }
 
 func (h *Heartbeat) Shutdown(ctx context.Context, empty *chord.Empty) (*chord.Empty, error) {
@@ -144,10 +182,17 @@ func (h *Heartbeat) startupNodes(n int) {
 	for i := 0; i < n; i++ {
 		host, err := h.upperLayer.GetInactiveHost(h.aliveSegments)
 		if err == ErrNoReachableHosts {
+			h.logError.Println(err)
 			return
 		}
 		h.upperLayer.StartSegment(host)
+
+		h.aliveSegments[host] = h.CreateNodeAttr(host)
 	}
+}
+
+func (h *Heartbeat) AbandonShip() {
+
 }
 
 func (h *Heartbeat) shutdownNodes(n int) {
@@ -207,7 +252,115 @@ func (h *Heartbeat) ProbeNetwork() {
 		case node := <-aliveChan:
 			h.aliveSegments[node.IpAddress] = node
 		default:
-			return
+			h.electNewLeader()
+			break
 		}
 	}
+}
+
+func (h *Heartbeat) LeaderHint(leader string) {
+	h.leader = h.CreateNodeAttr(leader)
+	alive := h.NotifyAlive()
+	if !alive {
+		go h.ProbeNetwork()
+	}
+}
+
+func (h *Heartbeat) updateLease(node *chord.Node) {
+	h.leaseLock.Lock()
+	defer h.leaseLock.Unlock()
+
+	lease := lease{Node: *node, Time: time.Now()}
+
+	h.leases = append(h.leases, lease)
+	sort.Sort(h.leases)
+}
+
+func (h *Heartbeat) adhereLeases() {
+	for {
+		aliveSegments := make(map[string]chord.Node)
+		for {
+			select {
+			case aliveSegment := <-h.aliveChan:
+				aliveSegments[aliveSegment.IpAddress] = aliveSegment
+			case <-time.After(time.Millisecond * time.Duration((len(h.aliveSegments) * 10))):
+				break
+			}
+		}
+
+		oldFucker := atomic.LoadInt32(&h.NetworkSizeTarget)
+		diff := len(aliveSegments) - int(oldFucker)
+		h.aliveSegments = aliveSegments
+		if diff != 0 {
+			if diff < 0 {
+				go h.startupNodes(diff)
+			} else {
+				go h.shutdownNodes(diff)
+			}
+		}
+	}
+}
+
+func (h *Heartbeat) handler() {
+	for {
+		// If we are not the leader: update lease
+		// If we are the leader: collect leases
+	}
+}
+
+func (h *Heartbeat) electNewLeader() {
+	var segments segmentSlice
+
+	for _, node := range h.aliveSegments {
+		segments = append(segments, node)
+	}
+
+	sort.Sort(segments)
+
+	// I'm the new leader
+	if segments[0].ID == h.self.ID {
+		h.leader = *h.self
+		return
+	}
+
+	// Find new leader by pinging the nodes
+	// in descending order. The first one
+	// that responds is the new leader
+	for i := 0; i < len(segments); i++ {
+		h.leader = segments[i]
+		alive := h.NotifyAlive()
+		if alive {
+			break
+		}
+	}
+}
+
+// Sort interface for leases
+type leaseSlice []lease
+
+func (l leaseSlice) Len() int {
+	return len(l)
+}
+
+func (l leaseSlice) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+
+func (l leaseSlice) Less(i, j int) bool {
+	return time.Since(l[i].Time) < time.Since(l[j].Time)
+}
+
+// Sort interface for nodes
+type segmentSlice []chord.Node
+
+func (l segmentSlice) Len() int {
+	return len(l)
+}
+
+func (l segmentSlice) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+
+func (l segmentSlice) Less(i, j int) bool {
+	return l[i].ID < l[j].ID
 }

@@ -1,6 +1,7 @@
-package segment
+package main
 
 import (
+	"context"
 	"errors"
 	"net"
 	"time"
@@ -21,6 +22,11 @@ type Reachable interface {
 type ClientRemote struct {
 	clientConns map[string]chord.ChordClient
 	Reachable
+}
+
+type ClientConnection struct {
+	context.Context
+	chord.ChordClient
 }
 
 func SetupRemote(r Reachable) *ClientRemote {

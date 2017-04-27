@@ -1,7 +1,8 @@
-package organizer
+package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -63,6 +64,37 @@ var segmentClient *http.Client
 func createClient() *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{},
+	}
+}
+
+func main() {
+	app := cli.NewApp()
+	app.Name = "Wormgate"
+	app.Usage = "Run one of the components"
+	app.Commands = []cli.Command{
+		{
+			Name:  "viz",
+			Usage: "run visualizer",
+			Action: func(c *cli.Context) error {
+				if !c.IsSet("wormport") {
+					return errors.New("Wormport flag must be set")
+				}
+				if !c.IsSet("segmentport") {
+					return errors.New("segmentport flag must be set")
+				}
+				return Run(c)
+			},
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "wormport, wp",
+					Usage: "Wormagte port (prefix with colon)",
+				},
+				cli.StringFlag{
+					Name:  "segmentport, sp",
+					Usage: "segment port (prefix with colon)",
+				},
+			},
+		},
 	}
 }
 

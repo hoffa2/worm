@@ -1,4 +1,4 @@
-package wormgate
+package main
 
 import (
 	"flag"
@@ -31,6 +31,29 @@ var partitionScheme int32
 var runningSegment struct {
 	sync.RWMutex
 	p *os.Process
+}
+
+func main() {
+	app := cli.NewApp()
+	app.Name = "Wormgate"
+	app.Usage = "Run one of the components"
+
+	app.Commands = []cli.Command{
+		{
+			Name:  "wormgate",
+			Usage: "Starts the wormgate",
+			Action: func(c *cli.Context) error {
+				return Run(c)
+			},
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "wormport, wp",
+					Usage: "Wormagte port (prefix with colon)",
+				},
+			},
+		},
+	}
+
 }
 
 func Run(c *cli.Context) error {
@@ -84,12 +107,12 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Consume body
 		io.Copy(ioutil.Discard, r.Body)
-		r.Body.Close()
 
 		return
 	}
 
-	var segmentPort = r.URL.Query().Get("sp")
+	segmentPort := r.URL.Query().Get("sp")
+	remoteHost := r.URL.Query().Get("rh")
 
 	log.Println("Received segment from", r.RemoteAddr)
 
@@ -139,7 +162,7 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 	// Start command, do not wait for it to complete
 	binary := extractionpath + "/" + "segment"
 	cmdline = []string{"stdbuf", "-oL", "-eL",
-		binary, "run", "-wp", wormgatePort, "-sp", segmentPort}
+		binary, "run", "-wp", wormgatePort, "-sp", segmentPort, "-rh", remoteHost}
 	log.Printf("Running segment: %q", cmdline)
 	cmd := exec.Command(cmdline[0], cmdline[1:]...)
 	cmd.Stdout = os.Stdout
@@ -147,7 +170,7 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 	//cmd.Dir = path
 	err = cmd.Start()
 	if err != nil {
-		log.Panic("Error starting segment ", err)
+
 	}
 	runningSegment.p = cmd.Process
 

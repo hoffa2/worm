@@ -1,11 +1,8 @@
-package segment
+package main
 
 import (
 	"errors"
 	"fmt"
-	"github.com/hoffa2/worm/protobuf/chord"
-	"github.com/soheilhy/cmux"
-	"github.com/urfave/cli"
 	"io"
 	"io/ioutil"
 	"log"
@@ -18,6 +15,10 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/hoffa2/worm/protobuf/chord"
+	"github.com/soheilhy/cmux"
+	"github.com/urfave/cli"
 )
 
 var (
@@ -28,12 +29,52 @@ type segment struct {
 	// Underlying listener
 	// for the http server
 	net.Listener
-	*Heartbeat
+	heartbeat      *Heartbeat
 	hostsLock      sync.RWMutex
 	reachableHosts []string
 	wormgatePort   string
 	segmentPort    string
 	hostname       string
+}
+
+func main() {
+	app := cli.NewApp()
+	app.Name = "Wormgate"
+	app.Usage = "Run one of the components"
+	app.Commands = []cli.Command{
+		{
+			Name:  "segment",
+			Usage: "run segment",
+			Action: func(c *cli.Context) error {
+				if !c.IsSet("mode") {
+					return errors.New("Wormport flag must be set")
+				}
+				return Run(c)
+			},
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "wormport, wp",
+					Usage: "Wormagte port (prefix with colon)",
+				},
+				cli.StringFlag{
+					Name:  "segmentport, sp",
+					Usage: "segment port (prefix with colon)",
+				},
+				cli.StringFlag{
+					Name:  "mode, m",
+					Usage: "Spread or Start",
+				},
+				cli.StringFlag{
+					Name:  "remotehost, rh",
+					Usage: "Spread or Start",
+				},
+				cli.IntFlag{
+					Name:  "target, t",
+					Usage: "Inital number of targets (Set only if the segments is the first in the network)",
+				},
+			},
+		},
+	}
 }
 
 func Run(c *cli.Context) error {
@@ -42,16 +83,16 @@ func Run(c *cli.Context) error {
 	wormgatePort := c.String("wormgateport")
 	mode := c.String("mode")
 	if mode == "spread" {
-		return SendSegment(host, segmentPort, wormgatePort)
+		return SendSegment(host, segmentPort, wormgatePort, "")
 	} else if mode == "start" {
 		return StartSegmentServer(c)
 	}
 	return errors.New("Mode must be either spread or start")
 }
 
-func SendSegment(host, segmentPort, wormgatePort string) error {
+func SendSegment(host, segmentPort, wormgatePort, remoteHost string) error {
 
-	url := fmt.Sprintf("http://%s%s/wormgate?sp=%s", host, wormgatePort, segmentPort)
+	url := fmt.Sprintf("http://%s%s/wormgate?sp=%s&rh=%s", host, wormgatePort, segmentPort, remoteHost)
 	filename := "tmp.tar.gz"
 
 	log.Printf("Spreading to %s", url)
@@ -83,13 +124,14 @@ func SendSegment(host, segmentPort, wormgatePort string) error {
 }
 
 func (s *segment) StartSegment(host string) error {
-	return SendSegment(host, s.segmentPort, s.wormgatePort)
+	return SendSegment(host, s.segmentPort, s.wormgatePort, s.hostname)
 }
 
 func StartSegmentServer(c *cli.Context) error {
 	segmentPort := c.String("segmentport")
 	target := c.Int("target")
 	wormgatePort := c.String("wormgateport")
+	remoteHost := c.String("remotehost")
 
 	// Startup case
 	// Only bootstrap segments if "target" is set
@@ -120,13 +162,15 @@ func StartSegmentServer(c *cli.Context) error {
 		Listener:     l,
 		segmentPort:  segmentPort,
 		wormgatePort: wormgatePort,
+		hostname:     hostname,
 	}
-	segment.Heartbeat, err = SetupHeartbeat(hostname, segmentPort, segment, grpcL)
+	segment.heartbeat, err = SetupHeartbeat(hostname, segmentPort, segment, grpcL)
 	if err != nil {
 		return err
 	}
 
-	segment.UpdateNetworkSizeTarget(int32(target))
+	segment.heartbeat.UpdateNetworkSizeTarget(int32(target))
+	segment.heartbeat.LeaderHint(remoteHost)
 
 	// Making sure that the port
 	// is closed if we are killed
@@ -171,7 +215,7 @@ func (s segment) targetSegmentsHandler(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 
 	log.Printf("New targetSegments: %d", ts)
-	s.UpdateNetworkSizeTarget(ts)
+	s.heartbeat.UpdateNetworkSizeTarget(ts)
 }
 
 func (s segment) shutdownHandler(w http.ResponseWriter, r *http.Request) {
@@ -186,6 +230,8 @@ func (s segment) shutdownHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
+
+	s.heartbeat.AbandonShip()
 
 	// Shut down
 	log.Printf("Received shutdown command, committing suicide")
